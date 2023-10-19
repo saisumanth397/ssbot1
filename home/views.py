@@ -1,0 +1,104 @@
+from django.shortcuts import render,redirect
+# from home.models import Contact
+from django.contrib.auth import authenticate , login , logout
+from django.contrib import messages
+import requests
+import json
+import os
+import base64
+from django.http import JsonResponse , HttpResponseBadRequest
+from django.template.defaultfilters import linebreaksbr
+from .SmartSyncBot_UI_V3_UI_version import *
+from django.views.decorators.csrf import csrf_exempt, csrf_protect
+
+
+
+
+def home(request):  
+    return render(request, 'home.html')
+
+def about(request):
+    return render(request, 'about.html')
+def Faq(request):
+    return render(request ,'Faq.html')
+def Help(request):
+    return render(request, 'help.html')
+def Contacts(request):
+    return render(request, 'contacts.html')
+
+@csrf_exempt
+def projects(request): # 4) the request then comes here 
+    if request.method == 'POST':
+        username = request.POST['username'] #the user enters the username in the ui , the entered ui , these values come from projects.html template
+        password = request.POST['password'] #the user enters the password in the ui , the entered ui , these values come from projects.html template
+        # regarding the above , u can have look at the projects.html file in templates folder
+        valid_credentials = {
+            'sai.sumanthkakkirala@iqvia.com': 'sai@123',
+            'karuna.tirumala@iqvia.com': 'karuna@123',
+            
+            
+        }
+        #5 ) the script checks if the details entered by the user are in the valid_credentials dictionary 
+        if username in valid_credentials and password == valid_credentials[username]: 
+            # Store the username in session to remember the logged-in user
+            request.session['username'] = username
+            return redirect('workbench')  # 6) if yes ,Redirect to home page after successful login
+        else:
+            error_message = 'OOPS!! Seems like Username or password entered is incorrect,Please Try again.'
+            return render(request, 'projects.html', {'error_message': error_message})
+    #7 ) if the creds are not in the dictionary , the script will not direct him to home page, he will remain in same page
+    return render(request, 'projects.html') #3) the user will see the project.html page 
+
+
+
+def contacts(request):
+    if request.method=="POST":
+        name = request.POST['name']
+        email = request.POST['email']
+        phone = request.POST['phone']
+        desc = request.POST['desc']
+        print(name ,email, phone, desc)
+        contact = Contact(name=name, email= email, phone=phone , desc=desc)
+        contact.save()
+        print("the data has been returened to the DB") 
+    return render(request, 'contacts.html')
+
+def workbench(request):
+
+    print("\n I have arrived in wrk\n")
+    if request.method == 'POST':
+        try :
+            message = request.POST.get('message')
+            response = smartsyncbot(message)
+            print("\nWorkbench Respose\n",response)
+            x=JsonResponse({'message': message, 'response': response})
+    
+            if "!DOCTYPE" in response :
+                response_frmt=response
+            else :
+                response_frmt=linebreaksbr(response)
+        
+            
+            y=JsonResponse({'message': message, 'response': response_frmt})
+            #print("\n Y as byte \n",y.content,"\n")
+            #print("\n Y as String \n",y.content.decode('utf-8'))
+            
+            print("Message body from workbench : ",messages,"\n")
+            
+            return JsonResponse({'message': message, 'response': response_frmt})
+            
+        except Exception as e:
+            print("\nI am here error from view.py workbench\n")
+            error_message = str(e)  # Convert the exception to a string message
+            error_message = error_message+' I am here'
+            print('\nError is : ', error_message)
+            print('\nmessage  is : ', message)
+            z=JsonResponse({'message': message, 'error': error_message})
+            print('\nReturned data \n',z.content,"\n")
+            #return JsonResponse({'message': message, 'error': error_message})
+            error_message="""I am sorry ,service is unresponsive.
+            Please try different query or try after some time"""
+            return JsonResponse({'message': message, 'response': error_message})
+
+        
+    return render(request, 'workbench.html')
